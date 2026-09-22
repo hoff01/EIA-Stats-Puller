@@ -454,7 +454,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--schedule-seed", type=Path, default=DEFAULT_SCHEDULE_SEED)
     parser.add_argument("--schedule-refresh-days", type=int, default=DEFAULT_REFRESH_DAYS)
     parser.add_argument("--schedule-timeout", type=float, default=20.0)
-    parser.add_argument("--interval", type=float, default=1.0)
+    parser.add_argument("--interval", type=float, default=0.5)
     parser.add_argument("--duration", type=float, default=120.0)
     parser.add_argument("--timeout", type=float, default=2.5)
     parser.add_argument("--now-eastern", help="Testing override in ISO format; naive values are interpreted as Eastern time.")

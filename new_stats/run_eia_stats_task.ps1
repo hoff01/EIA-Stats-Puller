@@ -1,5 +1,5 @@
 param(
-    [double]$IntervalSeconds = 1.0,
+    [double]$IntervalSeconds = 0.5,
     [double]$DurationSeconds = 120,
     [double]$TimeoutSeconds = 2.5,
     [double]$ScheduleTimeoutSeconds = 20.0,

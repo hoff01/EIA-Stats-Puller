@@ -35,12 +35,12 @@ python3 eia_stats.py --once --latest --no-clipboard --no-preview --force
 Poll every quarter second for one minute:
 
 ```bash
-python3 eia_stats.py --poll --interval 1 --duration 120
+python3 eia_stats.py --poll --interval 0.5 --duration 120
 ```
 
 The script writes `eia_stats.png`, archives a dated copy, and records generated release dates in `eia_stats_status.json` so the same release is not repeated.
 
-Poll mode checks the WPSR JSON `current_week` before generating the image. The default interval is 1 second for up to 120 seconds. The optional minimum is 0.25 seconds, but the slower default is recommended to avoid unnecessary traffic. Connection pooling is retained across download retries.
+Poll mode checks the WPSR JSON `current_week` before generating the image. The default interval is 0.5 seconds for up to 120 seconds, including retries of blank, unavailable and stale responses. The optional minimum is 0.25 seconds. Requests do not overlap; slow responses can extend the interval. Connection pooling is retained across download retries. Clipboard copying and readback verification run immediately after rendering, before preview launch and archiving.
 
 ## Daily Schedule-Aware Runner
 
@@ -112,8 +112,8 @@ Environment variables supported by the recreated script:
 ```bash
 export EIA_STATS_OUTPUT_PATH=eia_stats.png
 export EIA_STATS_STATUS_FILE=eia_stats_status.json
-export EIA_STATS_REFRESH_INTERVAL_SECONDS=1
-export EIA_STATS_MAX_ATTEMPTS=120
+export EIA_STATS_REFRESH_INTERVAL_SECONDS=0.5
+export EIA_STATS_MAX_ATTEMPTS=240
 export EIA_STATS_RUN_MODE=poll
 export EIA_STATS_REQUEST_TIMEOUT_SECONDS=2.5
 export EIA_STATS_IMAGE_FETCH_RETRY_ATTEMPTS=3

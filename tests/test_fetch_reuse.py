@@ -66,4 +66,4 @@ class FetchReuseTests(unittest.TestCase):
             module = importlib.import_module(f'{variant}.eia_stats')
             with patch('sys.argv', ['eia_stats.py', '--poll']), patch.dict(module.os.environ, {}, clear=True):
                 args = module.parse_args()
-            self.assertEqual((args.interval, args.duration), (1.0, 120.0))
+            self.assertEqual((args.interval, args.duration), (0.5, 120.0))

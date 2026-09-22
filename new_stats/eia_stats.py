@@ -603,20 +603,20 @@ def _create_output_locked(
     output_path = render_image(tables, release_date, output_path)
     image_seconds = time.perf_counter() - start
 
-    preview_ok = False
-    if not no_preview:
-        preview_ok = open_image_preview(output_path)
-
     clipboard_ok = False
     if not no_clipboard:
-        attempts = read_env_int("EIA_STATS_CLIPBOARD_RETRY_ATTEMPTS", 5)
-        delay = read_env_float("EIA_STATS_CLIPBOARD_RETRY_SECONDS", 0.25)
+        attempts = max(1, read_env_int("EIA_STATS_CLIPBOARD_RETRY_ATTEMPTS", 5))
+        delay = max(0.0, read_env_float("EIA_STATS_CLIPBOARD_RETRY_SECONDS", 0.25))
         for attempt in range(1, attempts + 1):
             if copy_image_to_clipboard(output_path):
                 clipboard_ok = True
                 break
             if attempt < attempts:
                 time.sleep(delay)
+
+    preview_ok = False
+    if not no_preview:
+        preview_ok = open_image_preview(output_path)
 
     archive_dir = output_path.parent / "archive" / "historical_outputs"
     archive_dir.mkdir(parents=True, exist_ok=True)
@@ -685,7 +685,7 @@ def poll(args: argparse.Namespace) -> int:
         return 2
 
     with make_http_client(args.timeout) as client:
-        while time.monotonic() <= deadline:
+        while time.monotonic() < deadline:
             attempt += 1
             loop_started = time.monotonic()
             try:
@@ -723,7 +723,8 @@ def poll(args: argparse.Namespace) -> int:
             if generated:
                 return 0
 
-            sleep_for = args.interval - (time.monotonic() - loop_started)
+            now = time.monotonic()
+            sleep_for = min(args.interval - (now - loop_started), deadline - now)
             if sleep_for > 0:
                 time.sleep(sleep_for)
     print(f"Timeout after {attempt} attempts; no new stats generated.", file=sys.stderr)
@@ -731,8 +732,8 @@ def poll(args: argparse.Namespace) -> int:
 
 
 def parse_args() -> argparse.Namespace:
-    default_interval = read_env_float("EIA_STATS_REFRESH_INTERVAL_SECONDS", 1.0)
-    default_attempts = read_env_int("EIA_STATS_MAX_ATTEMPTS", 120)
+    default_interval = read_env_float("EIA_STATS_REFRESH_INTERVAL_SECONDS", 0.5)
+    default_attempts = read_env_int("EIA_STATS_MAX_ATTEMPTS", 240)
     parser = argparse.ArgumentParser(description="Fast EIA WPSR petroleum JSON-to-image generator.")
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument("--once", action="store_true", help="Fetch once and generate if data is new.")
