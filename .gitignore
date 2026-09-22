@@ -10,6 +10,7 @@ old_stats/logs/
 new_stats/logs/
 *.lock
 eia_stats.png
+eia_stats_*.png
 old_stats/eia_stats.png
 new_stats/eia_stats.png
 eia_stats_status.json

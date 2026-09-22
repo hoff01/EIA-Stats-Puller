@@ -6,6 +6,13 @@ Extract anywhere, for example `%USERPROFILE%\Documents\EIA-Stats-Puller`.
 All paths resolve relative to this folder. The Windows runner creates its own
 environment; do not copy `.venv` from another computer. Requirements include
 `python-certifi-win32` on Windows to include trusted Windows certificates.
+Windows clipboard output uses `pywin32` to store a persistent bitmap directly,
+without launching a PowerShell clipboard subprocess.
+Clipboard access requires an unlocked, interactive Windows session. If Windows
+denies access, the script reports `clipboard=False`; the generated PNG remains
+available. Run scheduled clipboard tasks only while the user is logged on.
+If an image viewer locks the previous PNG, the next result is saved under a
+unique dated filename and the preview/status points to that new image.
 
 This repo now contains two fully contained runnable variants:
 

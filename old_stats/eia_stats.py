@@ -517,7 +517,7 @@ def draw_credit(draw: ImageDraw.ImageDraw, image_width: int, image_height: int) 
     draw.text((x1 + pad_x - bbox[0], y1 + pad_y - bbox[1]), CREDIT_TEXT, fill=(112, 106, 108), font=font)
 
 
-def render_image(tables: list[StatsTable], release_date: date, output_path: Path) -> None:
+def render_image(tables: list[StatsTable], release_date: date, output_path: Path) -> Path:
     width = 1300
     height = 280
     table_y = 50
@@ -590,7 +590,18 @@ def render_image(tables: list[StatsTable], release_date: date, output_path: Path
     draw_cell(draw, (12, 4, 170, 28), we_text, small_font, text, "left")
     draw_credit(draw, width, height)
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    image.save(output_path, "PNG", compress_level=1)
+    temporary = output_path.with_name(f".{output_path.name}.{os.getpid()}.tmp")
+    try:
+        image.save(temporary, "PNG", compress_level=1)
+        try:
+            temporary.replace(output_path)
+        except PermissionError:
+            # Windows image viewers can keep the previous output locked.
+            output_path = output_path.with_name(f"{output_path.stem}_{release_date.isoformat()}_{time.time_ns()}{output_path.suffix}")
+            temporary.replace(output_path)
+    finally:
+        temporary.unlink(missing_ok=True)
+    return output_path
 
 
 def copy_image_to_clipboard(path: Path) -> bool:
@@ -602,27 +613,24 @@ def copy_image_to_clipboard(path: Path) -> bool:
             subprocess.run(["osascript", "-e", script], check=True, capture_output=True, text=True)
             return True
         if system == "Windows":
-            script = """
-Add-Type -AssemblyName System.Windows.Forms
-Add-Type -AssemblyName System.Drawing
-$image = [System.Drawing.Image]::FromFile($args[0])
-try {
-    [System.Windows.Forms.Clipboard]::SetDataObject($image, $true)
-    Start-Sleep -Milliseconds 100
-    if (-not [System.Windows.Forms.Clipboard]::ContainsImage()) {
-        throw "Clipboard does not contain an image after copy."
-    }
-}
-finally {
-    $image.Dispose()
-}
-"""
-            subprocess.run(
-                ["powershell.exe", "-NoProfile", "-STA", "-ExecutionPolicy", "Bypass", "-Command", script, str(path.resolve())],
-                check=True,
-                capture_output=True,
-                text=True,
-            )
+            import win32clipboard
+            import pywintypes
+
+            with Image.open(path) as image:
+                buffer = io.BytesIO()
+                image.convert("RGB").save(buffer, format="BMP")
+                dib = buffer.getvalue()[14:]
+            try:
+                win32clipboard.OpenClipboard()
+                try:
+                    win32clipboard.EmptyClipboard()
+                    win32clipboard.SetClipboardData(win32clipboard.CF_DIB, dib)
+                    if win32clipboard.GetClipboardData(win32clipboard.CF_DIB) != dib:
+                        raise OSError("Clipboard bitmap verification failed")
+                finally:
+                    win32clipboard.CloseClipboard()
+            except pywintypes.error as exc:
+                raise OSError(str(exc)) from exc
             return True
         print(f"Clipboard copy skipped: {system} is not supported by this script.", file=sys.stderr)
         return False
@@ -677,7 +685,7 @@ def _create_output_locked(
         return False, f"Data not ready: latest {release_key}, waiting for {expected.isoformat()}"
 
     start = time.perf_counter()
-    render_image(tables, release_date, output_path)
+    output_path = render_image(tables, release_date, output_path)
     image_seconds = time.perf_counter() - start
 
     preview_ok = False
