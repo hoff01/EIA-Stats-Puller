@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import argparse
-import asyncio
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import csv
 from contextlib import contextmanager
 import io
@@ -293,38 +293,32 @@ class FetchResult:
     elapsed_seconds: float
 
 
-async def fetch_missing_tables_async(table_names: list[str], timeout: float) -> dict[str, CsvTable]:
-    async with httpx.AsyncClient(
-        http2=True,
-        follow_redirects=True,
-        headers=request_headers(),
-        timeout=build_http_timeout(timeout),
-    ) as client:
-        responses = await asyncio.gather(*(client.get(legacy_table_url(name)) for name in table_names))
-    tables: dict[str, CsvTable] = {}
-    for name, response in zip(table_names, responses, strict=True):
-        response.raise_for_status()
-        tables[name] = parse_csv_table(response.content, name)
-    return tables
-
-
-def fetch_wpsr(timeout: float, initial_tables: dict[str, CsvTable] | None = None) -> FetchResult:
+def fetch_wpsr(timeout: float, initial_tables: dict[str, CsvTable] | None = None,
+               client: httpx.Client | None = None) -> FetchResult:
     start = time.perf_counter()
     fetch_attempts = max(1, read_env_int("EIA_STATS_IMAGE_FETCH_RETRY_ATTEMPTS", 3))
     fetch_delay = max(0.0, read_env_float("EIA_STATS_IMAGE_FETCH_RETRY_SECONDS", 0.25))
     last_error: Exception | None = None
-    for attempt in range(1, fetch_attempts + 1):
-        try:
-            tables = dict(initial_tables or {})
-            missing = [name for name in LEGACY_TABLE_URLS if name not in tables]
-            if missing:
-                tables.update(asyncio.run(fetch_missing_tables_async(missing, timeout)))
-            ordered = {name: tables[name] for name in LEGACY_TABLE_URLS}
-            return FetchResult(data=ordered, elapsed_seconds=time.perf_counter() - start)
-        except Exception as exc:
-            last_error = exc
-            if attempt < fetch_attempts and fetch_delay:
-                time.sleep(fetch_delay)
+    active_client = client or make_http_client(timeout)
+    tables = dict(initial_tables or {})
+    try:
+        with ThreadPoolExecutor(max_workers=3) as executor:
+            for attempt in range(1, fetch_attempts + 1):
+                missing = [name for name in LEGACY_TABLE_URLS if name not in tables]
+                futures = {executor.submit(fetch_csv_table, name, timeout, active_client): name for name in missing}
+                for future in as_completed(futures):
+                    try:
+                        tables[futures[future]] = future.result()
+                    except Exception as exc:
+                        last_error = exc
+                if all(name in tables for name in LEGACY_TABLE_URLS):
+                    ordered = {name: tables[name] for name in LEGACY_TABLE_URLS}
+                    return FetchResult(data=ordered, elapsed_seconds=time.perf_counter() - start)
+                if attempt < fetch_attempts and fetch_delay:
+                    time.sleep(fetch_delay)
+    finally:
+        if client is None:
+            active_client.close()
     raise RuntimeError(f"Could not fetch EIA WPSR legacy CSV data: {last_error}")
 
 
@@ -665,6 +659,7 @@ def _create_output_locked(
     target: date | None = None,
     require_target: bool = True,
     fetched: FetchResult | None = None,
+    client: httpx.Client | None = None,
 ) -> tuple[bool, str]:
     status = load_status(status_path)
     expected = target or target_friday(status)
@@ -675,7 +670,7 @@ def _create_output_locked(
     if require_target and not force and target is None and seen_dates and date.today() < expected:
         return False, f"Already generated through {max(seen_dates)}; next target is {expected_key}"
 
-    fetched = fetch_wpsr(timeout, initial_tables=fetched.data if fetched else None)
+    fetched = fetch_wpsr(timeout, initial_tables=fetched.data if fetched else None, client=client)
     release_date, tables = build_stats(fetched.data)
     release_key = release_date.isoformat()
 
@@ -743,6 +738,7 @@ def create_output(
     target: date | None = None,
     require_target: bool = True,
     fetched: FetchResult | None = None,
+    client: httpx.Client | None = None,
 ) -> tuple[bool, str]:
     with status_lock(status_path):
         return _create_output_locked(
@@ -755,6 +751,7 @@ def create_output(
             target=target,
             require_target=require_target,
             fetched=fetched,
+            client=client,
         )
 
 
@@ -797,6 +794,7 @@ def poll(args: argparse.Namespace) -> int:
                         timeout=args.timeout,
                         target=expected,
                         fetched=fetched,
+                        client=client,
                     )
             except Exception as exc:
                 message = f"Attempt {attempt} failed: {exc}"
@@ -816,8 +814,8 @@ def poll(args: argparse.Namespace) -> int:
 
 
 def parse_args() -> argparse.Namespace:
-    default_interval = read_env_float("EIA_STATS_REFRESH_INTERVAL_SECONDS", 0.25)
-    default_attempts = read_env_int("EIA_STATS_MAX_ATTEMPTS", 240)
+    default_interval = read_env_float("EIA_STATS_REFRESH_INTERVAL_SECONDS", 1.0)
+    default_attempts = read_env_int("EIA_STATS_MAX_ATTEMPTS", 120)
     parser = argparse.ArgumentParser(description="Fast EIA WPSR petroleum legacy-CSV-to-image generator.")
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument("--once", action="store_true", help="Fetch once and generate if data is new.")

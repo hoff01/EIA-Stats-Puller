@@ -242,13 +242,14 @@ def fetch_wpsr(timeout: float) -> FetchResult:
     fetch_attempts = max(1, read_env_int("EIA_STATS_IMAGE_FETCH_RETRY_ATTEMPTS", 3))
     fetch_delay = max(0.0, read_env_float("EIA_STATS_IMAGE_FETCH_RETRY_SECONDS", 0.25))
     last_error: Exception | None = None
-    for attempt in range(1, fetch_attempts + 1):
-        try:
-            return FetchResult(data=fetch_wpsr_json(timeout), elapsed_seconds=time.perf_counter() - start)
-        except Exception as exc:
-            last_error = exc
-            if attempt < fetch_attempts and fetch_delay:
-                time.sleep(fetch_delay)
+    with make_http_client(timeout) as client:
+        for attempt in range(1, fetch_attempts + 1):
+            try:
+                return FetchResult(data=fetch_wpsr_json(timeout, client=client), elapsed_seconds=time.perf_counter() - start)
+            except Exception as exc:
+                last_error = exc
+                if attempt < fetch_attempts and fetch_delay:
+                    time.sleep(fetch_delay)
     raise RuntimeError(f"Could not fetch EIA WPSR JSON data: {last_error}")
 
 
@@ -730,8 +731,8 @@ def poll(args: argparse.Namespace) -> int:
 
 
 def parse_args() -> argparse.Namespace:
-    default_interval = read_env_float("EIA_STATS_REFRESH_INTERVAL_SECONDS", 0.25)
-    default_attempts = read_env_int("EIA_STATS_MAX_ATTEMPTS", 240)
+    default_interval = read_env_float("EIA_STATS_REFRESH_INTERVAL_SECONDS", 1.0)
+    default_attempts = read_env_int("EIA_STATS_MAX_ATTEMPTS", 120)
     parser = argparse.ArgumentParser(description="Fast EIA WPSR petroleum JSON-to-image generator.")
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument("--once", action="store_true", help="Fetch once and generate if data is new.")

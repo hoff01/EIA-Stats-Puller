@@ -57,6 +57,10 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File ".\new_stats\run_eia_sta
 That runner refreshes the EIA schedule weekly, interprets all listed times in New York/Eastern time, exits immediately on non-release days, and on release days waits until the official release time before starting the poll. The standard schedule on the EIA page is `10:30 a.m. Eastern`. It records generated release dates in `eia_stats_status.json` and exits cleanly without republishing a week that was already generated unless `-Force` is supplied.
 By default, the live runner writes `old_stats\eia_stats.png`, opens it on screen, copies it to the Windows clipboard for chat pasting, and archives a dated copy. Add `-NoPreview` or `-NoClipboard` only when you intentionally want to skip those actions.
 
+The default release watch checks once per second for up to 120 seconds after the scheduled release time. Starting early waits for the scheduled time before this window begins. An in-flight request can finish after the polling window; request timeouts and bounded retries remain enabled. Override `-IntervalSeconds` or `-DurationSeconds` only when needed.
+
+The CSV runner reuses the polling connection pool when the new release arrives, downloads at most three tables concurrently, and retries only failed downloads within an attempt. It still rejects blank/HTML responses and mixed release dates. The JSON variant reuses its connection pool during retries. These changes reduce connection setup and duplicate requests without polling EIA faster. Both variants retain Windows certificate support, preview, clipboard retries and duplicate-week protection.
+
 Both folders are self-contained and each includes:
 
 - `eia_stats.py`

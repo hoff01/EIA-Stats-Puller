@@ -36,12 +36,12 @@ python3 eia_stats.py --once --latest --no-clipboard --no-preview --force
 Poll every quarter second for one minute:
 
 ```bash
-python3 eia_stats.py --poll --interval 0.25 --duration 60
+python3 eia_stats.py --poll --interval 1 --duration 120
 ```
 
 The script writes `eia_stats.png`, archives a dated copy, and records generated release dates in `eia_stats_status.json` so the same release is not repeated.
 
-Poll mode checks the Table 4 CSV header date before generating the image. The minimum poll interval is 0.25 seconds to keep the release watch fast without flooding EIA.
+Poll mode checks the Table 4 CSV header date before generating the image. The default interval is 1 second for up to 120 seconds. The optional minimum is 0.25 seconds, but the slower default is recommended to avoid unnecessary traffic. After detection, the existing connection pool is reused for the remaining tables, with at most three concurrent downloads and retries only for failed downloads. Mixed release dates still stop publication.
 
 ## Daily Schedule-Aware Runner
 
@@ -76,7 +76,7 @@ Add arguments:
 -NoProfile -ExecutionPolicy Bypass -File ".\run_eia_stats_task.ps1"
 ```
 
-The PowerShell runner is self-contained for scheduled use: it moves into this folder, creates `.venv` if needed, installs `requirements.txt`, refreshes the official EIA schedule weekly, exits immediately on non-release days, waits until the official Eastern release time on release days, polls for up to 3600 seconds by default, writes `eia_stats.png`, updates `eia_stats_status.json`, archives the dated image, and logs to `logs\`.
+The PowerShell runner is self-contained for scheduled use: it moves into this folder, creates `.venv` if needed, installs `requirements.txt`, refreshes the official EIA schedule weekly, exits immediately on non-release days, waits until the official Eastern release time on release days, polls for up to 120 seconds by default, writes `eia_stats.png`, updates `eia_stats_status.json`, archives the dated image, and logs to `logs\`.
 
 By default, the generated PNG is opened on screen and copied to the active Windows clipboard so it can be pasted into a chat. Configure the task as "Run only when user is logged on" so Windows allows clipboard and preview access.
 
@@ -102,7 +102,7 @@ Useful switches:
 - `-ShowDecision` prints whether today is a release day and exits.
 - `-RefreshScheduleOnly` updates the cached EIA schedule and exits.
 - `-IgnoreSchedule` skips the schedule gate and starts polling immediately.
-- `-DurationSeconds 60` is useful for quick testing instead of the default 3600-second release window.
+- `-DurationSeconds 60` is useful for quick testing instead of the default 120-second release window.
 - `-NoPreview` skips opening `eia_stats.png` after generation.
 - `-NoClipboard` skips copying `eia_stats.png` to the clipboard.
 
@@ -113,8 +113,8 @@ Environment variables supported by the recreated script:
 ```bash
 export EIA_STATS_OUTPUT_PATH=eia_stats.png
 export EIA_STATS_STATUS_FILE=eia_stats_status.json
-export EIA_STATS_REFRESH_INTERVAL_SECONDS=0.25
-export EIA_STATS_MAX_ATTEMPTS=240
+export EIA_STATS_REFRESH_INTERVAL_SECONDS=1
+export EIA_STATS_MAX_ATTEMPTS=120
 export EIA_STATS_RUN_MODE=poll
 export EIA_STATS_REQUEST_TIMEOUT_SECONDS=2.5
 export EIA_STATS_IMAGE_FETCH_RETRY_ATTEMPTS=3
