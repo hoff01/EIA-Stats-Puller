@@ -1,0 +1,2 @@
+-r old_stats/requirements.txt
+python-certifi-win32==1.6.1; platform_system == "Windows"

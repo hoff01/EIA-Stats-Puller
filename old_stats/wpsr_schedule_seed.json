@@ -1,0 +1,121 @@
+{
+  "default_release_day_name": "Wednesday",
+  "default_release_time_eastern": "10:30 a.m.",
+  "default_release_weekday": 2,
+  "fetched_at": "2026-06-07T21:30:00-04:00",
+  "holiday_exceptions": [
+    {
+      "default_release_date": "2025-01-01",
+      "holiday": "New Year's Day",
+      "release_date": "2025-01-02",
+      "release_day_name": "Thursday",
+      "release_time_eastern": "11:00 a.m.",
+      "week_ending": "2024-12-27"
+    },
+    {
+      "default_release_date": "2025-01-22",
+      "holiday": "Martin Luther King Jr. Day / Inauguration",
+      "release_date": "2025-01-23",
+      "release_day_name": "Thursday",
+      "release_time_eastern": "12:00 p.m.",
+      "week_ending": "2025-01-17"
+    },
+    {
+      "default_release_date": "2025-02-19",
+      "holiday": "President's Day",
+      "release_date": "2025-02-20",
+      "release_day_name": "Thursday",
+      "release_time_eastern": "12:00 p.m.",
+      "week_ending": "2025-02-14"
+    },
+    {
+      "default_release_date": "2025-05-28",
+      "holiday": "Memorial Day",
+      "release_date": "2025-05-29",
+      "release_day_name": "Thursday",
+      "release_time_eastern": "12:00 p.m.",
+      "week_ending": "2025-05-23"
+    },
+    {
+      "default_release_date": "2025-09-03",
+      "holiday": "Labor Day",
+      "release_date": "2025-09-04",
+      "release_day_name": "Thursday",
+      "release_time_eastern": "12:00 p.m.",
+      "week_ending": "2025-08-29"
+    },
+    {
+      "default_release_date": "2025-10-15",
+      "holiday": "Columbus Day",
+      "release_date": "2025-10-16",
+      "release_day_name": "Thursday",
+      "release_time_eastern": "12:00 p.m.",
+      "week_ending": "2025-10-10"
+    },
+    {
+      "default_release_date": "2025-11-12",
+      "holiday": "Veterans Day",
+      "release_date": "2025-11-13",
+      "release_day_name": "Thursday",
+      "release_time_eastern": "12:00 p.m.",
+      "week_ending": "2025-11-07"
+    },
+    {
+      "default_release_date": "2025-12-24",
+      "holiday": "Christmas",
+      "release_date": "2025-12-29",
+      "release_day_name": "Monday",
+      "release_time_eastern": "5:00 p.m.",
+      "week_ending": "2025-12-19"
+    },
+    {
+      "default_release_date": "2026-01-21",
+      "holiday": "Martin Luther King Jr. Day",
+      "release_date": "2026-01-22",
+      "release_day_name": "Thursday",
+      "release_time_eastern": "12:00 p.m.",
+      "week_ending": "2026-01-16"
+    },
+    {
+      "default_release_date": "2026-02-18",
+      "holiday": "President's Day",
+      "release_date": "2026-02-19",
+      "release_day_name": "Thursday",
+      "release_time_eastern": "12:00 p.m.",
+      "week_ending": "2026-02-13"
+    },
+    {
+      "default_release_date": "2026-05-27",
+      "holiday": "Memorial Day",
+      "release_date": "2026-05-28",
+      "release_day_name": "Thursday",
+      "release_time_eastern": "12:00 p.m.",
+      "week_ending": "2026-05-22"
+    },
+    {
+      "default_release_date": "2026-09-09",
+      "holiday": "Labor Day",
+      "release_date": "2026-09-10",
+      "release_day_name": "Thursday",
+      "release_time_eastern": "12:00 p.m.",
+      "week_ending": "2026-09-04"
+    },
+    {
+      "default_release_date": "2026-10-14",
+      "holiday": "Columbus Day",
+      "release_date": "2026-10-15",
+      "release_day_name": "Thursday",
+      "release_time_eastern": "12:00 p.m.",
+      "week_ending": "2026-10-09"
+    },
+    {
+      "default_release_date": "2026-11-11",
+      "holiday": "Veterans Day",
+      "release_date": "2026-11-12",
+      "release_day_name": "Thursday",
+      "release_time_eastern": "12:00 p.m.",
+      "week_ending": "2026-11-06"
+    }
+  ],
+  "source_url": "https://www.eia.gov/petroleum/supply/weekly/schedule.php"
+}

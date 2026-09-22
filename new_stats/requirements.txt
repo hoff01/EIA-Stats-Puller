@@ -1,0 +1,4 @@
+httpx[http2]>=0.28,<1
+pillow>=12.1
+tzdata>=2025.1
+python-certifi-win32==1.6.1; platform_system == "Windows"
