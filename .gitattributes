@@ -1,7 +1,2 @@
-*.csv text eol=lf
-*.pdf binary
-*.png binary
-*.jpg binary
-*.jpeg binary
-*.zip binary
-*.tar.xz binary
+*.bat text eol=crlf
+*.ps1 text eol=crlf

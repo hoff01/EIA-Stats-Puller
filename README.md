@@ -1,6 +1,6 @@
 # EIA Stats Puller
 
-Standalone private repository: https://github.com/hoff01/EIA-Stats-Puller.
+Standalone public repository: https://github.com/hoff01/EIA-Stats-Puller.
 The PDF dashboard is separate at https://github.com/hoff01/EIA-Summary.
 Extract anywhere, for example `%USERPROFILE%\Documents\EIA-Stats-Puller`.
 All paths resolve relative to this folder. The Windows runner creates its own
@@ -24,6 +24,10 @@ The top-level `eia_stats.py`, `requirements.txt`, and `run_eia_stats_task.ps1` n
 Both variants now also include a daily schedule-aware runner driven by the official EIA release calendar at `https://www.eia.gov/petroleum/supply/weekly/schedule.php`.
 
 ## Quick Run
+
+**One-button Windows use:** install Python 3.11+ and extract the entire download. Double-click `RUN_EIA_STATS.bat`. It automatically creates the environment, installs dependencies when needed, waits for the scheduled release, fetches the stats, copies the image to the clipboard, opens the preview and archives the result. No separate setup step is required. Keep the Windows session unlocked for clipboard copying. No administrator rights are required. `SETUP_WINDOWS.bat` is an optional setup-only button that does not fetch stats.
+
+The batch files resolve paths relative to their own folder, including paths with spaces, show progress and errors, and preserve exit codes. Double-click runs stay open when finished. Set `EIA_NO_PAUSE=1` for unattended runs. `RUN_EIA_STATS.bat -ShowDecision` checks the schedule without generating an image or changing the clipboard. Optional PowerShell switches such as `-NoPreview` also work through the batch launcher; omit `-NoClipboard` to keep automatic copying enabled.
 
 Legacy CSV version:
 

@@ -9,7 +9,8 @@ param(
     [switch]$NoPreview,
     [switch]$IgnoreSchedule,
     [switch]$RefreshScheduleOnly,
-    [switch]$ShowDecision
+    [switch]$ShowDecision,
+    [switch]$SetupOnly
 )
 
 $ErrorActionPreference = "Stop"
@@ -40,12 +41,15 @@ function Invoke-LoggedCommand {
     $previousErrorActionPreference = $ErrorActionPreference
     $ErrorActionPreference = "Continue"
     try {
-        $output = & $Command @Arguments 2>&1
+        & $Command @Arguments 2>&1 | ForEach-Object {
+            $line = [string]$_
+            Add-Content -Path $LogFile -Value $line
+            Write-Host $line
+        }
         $exitCode = $LASTEXITCODE
     } finally {
         $ErrorActionPreference = $previousErrorActionPreference
     }
-    $output | ForEach-Object { Add-Content -Path $LogFile -Value ([string]$_) }
     return $exitCode
 }
 
@@ -106,6 +110,11 @@ if ($installRequirements) {
         throw "Failed to install Python packages with exit code $pipExitCode."
     }
     New-Item -ItemType File -Force -Path $RequirementsStamp | Out-Null
+}
+
+if ($SetupOnly) {
+    Write-Host "EIA Stats setup complete. Run RUN_EIA_STATS.bat from the repository root."
+    exit 0
 }
 
 $argsList = @(
