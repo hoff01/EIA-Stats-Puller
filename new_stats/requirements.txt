@@ -1,3 +1,4 @@
+pip>=26.2.0
 httpx[http2]>=0.28,<1
 pillow>=12.1
 tzdata>=2025.1
