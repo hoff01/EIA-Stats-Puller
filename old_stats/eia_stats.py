@@ -35,7 +35,6 @@ LEGACY_TABLE_URLS = {
 DEFAULT_OUTPUT_PATH = "eia_stats.png"
 DEFAULT_STATUS_FILE = "eia_stats_status.json"
 MIN_POLL_INTERVAL_SECONDS = 0.25
-CREDIT_TEXT = "Created by: Alex Hoffmann"
 DATE_HEADER_RE = re.compile(r"\d{1,2}/\d{1,2}/\d{2,4}")
 NON_NUMERIC_RE = re.compile(r"[^0-9.\-]")
 
@@ -496,21 +495,6 @@ def draw_cell(
     draw.text((x - bbox[0], y - bbox[1]), text, fill=fill, font=font)
 
 
-def draw_credit(draw: ImageDraw.ImageDraw, image_width: int, image_height: int) -> None:
-    font = load_font(12, italic=True)
-    bbox = draw.textbbox((0, 0), CREDIT_TEXT, font=font)
-    text_w = bbox[2] - bbox[0]
-    text_h = bbox[3] - bbox[1]
-    pad_x = 8
-    pad_y = 4
-    x2 = image_width - 12
-    y2 = image_height - 8
-    x1 = x2 - text_w - pad_x * 2
-    y1 = y2 - text_h - pad_y * 2
-    draw.rounded_rectangle([x1, y1, x2, y2], radius=4, fill=(238, 237, 230), outline=(222, 220, 213))
-    draw.text((x1 + pad_x - bbox[0], y1 + pad_y - bbox[1]), CREDIT_TEXT, fill=(112, 106, 108), font=font)
-
-
 def render_image(tables: list[StatsTable], release_date: date, output_path: Path) -> Path:
     width = 1300
     height = 280
@@ -582,7 +566,6 @@ def render_image(tables: list[StatsTable], release_date: date, output_path: Path
 
     we_text = f"w/e {release_date.month}/{release_date.day}/{str(release_date.year)[2:]}"
     draw_cell(draw, (12, 4, 170, 28), we_text, small_font, text, "left")
-    draw_credit(draw, width, height)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     temporary = output_path.with_name(f".{output_path.name}.{os.getpid()}.tmp")
     try:
