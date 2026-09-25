@@ -372,7 +372,7 @@ def resolve_now_eastern(raw_now: str | None) -> datetime:
     return parsed.astimezone(EASTERN)
 
 
-def build_stats_command(args: argparse.Namespace) -> list[str]:
+def build_stats_command(args: argparse.Namespace, *, latest: bool = False, target_date: date | None = None) -> list[str]:
     command = [
         sys.executable,
         str(args.stats_script),
@@ -394,11 +394,15 @@ def build_stats_command(args: argparse.Namespace) -> list[str]:
         command.append("--no-preview")
     if args.force:
         command.append("--force")
+    if latest:
+        command.append("--latest")
+    elif target_date is not None:
+        command.extend(["--target-date", target_date.isoformat()])
     return command
 
 
-def run_stats_command(args: argparse.Namespace) -> int:
-    command = build_stats_command(args)
+def run_stats_command(args: argparse.Namespace, *, latest: bool = False, target_date: date | None = None) -> int:
+    command = build_stats_command(args, latest=latest, target_date=target_date)
     print(f"Launching stats runner: {' '.join(command)}", flush=True)
     completed = subprocess.run(command, check=False)
     return completed.returncode
@@ -409,7 +413,7 @@ def log_schedule_decision(now_et: datetime, decision: ReleaseDecision | None) ->
     if decision is None:
         print(
             f"No WPSR release scheduled for {now_et.date().isoformat()} Eastern. "
-            "Exiting immediately.",
+            "Fetching the latest published week.",
             flush=True,
         )
         return
@@ -443,7 +447,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
             "Daily EIA WPSR schedule-aware runner. It refreshes the official release "
-            "schedule, exits immediately on non-release days, and waits until the "
+            "schedule, fetches latest data on non-release days, and waits until the "
             "official Eastern release time on release days."
         )
     )
@@ -460,7 +464,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--now-eastern", help="Testing override in ISO format; naive values are interpreted as Eastern time.")
     parser.add_argument("--refresh-only", action="store_true", help="Refresh the cached WPSR schedule and exit.")
     parser.add_argument("--show-decision", action="store_true", help="Print today's release decision and exit.")
-    parser.add_argument("--ignore-schedule", action="store_true", help="Skip schedule checks and run the stats poll immediately.")
+    parser.add_argument("--ignore-schedule", "--latest", action="store_true", help="Fetch latest published data immediately, ignoring the calendar and prior output history.")
     parser.add_argument("--force", action="store_true")
     parser.add_argument("--no-clipboard", action="store_true")
     parser.add_argument("--no-preview", action="store_true")
@@ -471,17 +475,23 @@ def main() -> int:
     args = parse_args()
     now_et = resolve_now_eastern(args.now_eastern)
 
-    if args.ignore_schedule:
-        print("Ignoring EIA schedule and starting poll immediately.", flush=True)
-        return run_stats_command(args)
+    if args.ignore_schedule and not args.refresh_only:
+        print("Fetching latest published data without a schedule check.", flush=True)
+        return 0 if args.show_decision else run_stats_command(args, latest=True)
 
-    schedule = resolve_schedule(
-        cache_path=args.schedule_cache,
-        seed_path=args.schedule_seed,
-        timeout=args.schedule_timeout,
-        refresh_days=args.schedule_refresh_days,
-        now_et=now_et,
-    )
+    try:
+        schedule = resolve_schedule(
+            cache_path=args.schedule_cache,
+            seed_path=args.schedule_seed,
+            timeout=args.schedule_timeout,
+            refresh_days=args.schedule_refresh_days,
+            now_et=now_et,
+        )
+    except Exception as exc:
+        if args.refresh_only:
+            raise
+        print(f"Schedule unavailable ({exc}); fetching latest published data.", flush=True)
+        return 0 if args.show_decision else run_stats_command(args, latest=True)
 
     save_schedule_file(args.schedule_cache, schedule)
     print(
@@ -500,10 +510,15 @@ def main() -> int:
     if args.show_decision:
         return 0
     if decision is None:
-        return 0
+        return run_stats_command(args, latest=True)
 
     wait_until_release(now_et, decision)
-    return run_stats_command(args)
+    holiday = next((item for item in schedule.holiday_exceptions
+                    if item.release_date == decision.release_date), None)
+    target_date = holiday.week_ending if holiday else (
+        decision.release_date - timedelta(days=(decision.release_date.weekday() - 4) % 7 or 7)
+    )
+    return run_stats_command(args, target_date=target_date)
 
 
 if __name__ == "__main__":

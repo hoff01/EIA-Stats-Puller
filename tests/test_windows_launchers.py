@@ -16,13 +16,13 @@ class WindowsLauncherTests(unittest.TestCase):
             for name in ('RUN_EIA_STATS.bat', 'SETUP_WINDOWS.bat', 'run_eia_stats_task.ps1'):
                 shutil.copy2(source / name, root / name)
             (root / 'old_stats' / 'run_eia_stats_task.ps1').write_text(
-                'param([switch]$SetupOnly,[switch]$ShowDecision,[double]$IntervalSeconds)\n'
+                'param([switch]$SetupOnly,[switch]$ShowDecision,[switch]$Latest,[double]$IntervalSeconds)\n'
                 'if ($SetupOnly) { Write-Host "Setup only"; exit 0 }\n'
-                'if (-not $ShowDecision -or $IntervalSeconds -ne 0.5) { exit 99 }\n'
+                'if (-not $ShowDecision -or -not $Latest -or $IntervalSeconds -ne 0.5) { exit 99 }\n'
                 'Write-Host "Arguments forwarded"\nexit 37\n')
             env = {**os.environ, 'EIA_NO_PAUSE': '1'}
             result = subprocess.run(
-                f'cmd.exe /d /s /c ""{root / "RUN_EIA_STATS.bat"}" -ShowDecision -IntervalSeconds 0.5"',
+                f'cmd.exe /d /s /c ""{root / "RUN_EIA_STATS.bat"}" -ShowDecision -Latest -IntervalSeconds 0.5"',
                 cwd=directory, env=env, capture_output=True, text=True, timeout=30)
             self.assertEqual(result.returncode, 37, result.stdout + result.stderr)
             self.assertIn('Arguments forwarded', result.stdout)

@@ -8,6 +8,7 @@ param(
     [switch]$NoClipboard,
     [switch]$NoPreview,
     [switch]$IgnoreSchedule,
+    [switch]$Latest,
     [switch]$RefreshScheduleOnly,
     [switch]$ShowDecision,
     [switch]$SetupOnly
@@ -138,7 +139,7 @@ if ($NoPreview) {
 if ($Force) {
     $argsList += "--force"
 }
-if ($IgnoreSchedule) {
+if ($IgnoreSchedule -or $Latest) {
     $argsList += "--ignore-schedule"
 }
 if ($RefreshScheduleOnly) {
@@ -152,7 +153,4 @@ Write-TaskLog "Running EIA schedule-aware task."
 $exitCode = Invoke-LoggedCommand -Command $VenvPython -Arguments $argsList
 Write-TaskLog "Finished with exit code $exitCode."
 
-if ($exitCode -eq 2) {
-    exit 0
-}
 exit $exitCode

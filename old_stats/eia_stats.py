@@ -743,11 +743,13 @@ def poll(args: argparse.Namespace) -> int:
     attempt = 0
     last_message = ""
     status = load_status(args.status_file)
-    expected = args.target_date or target_friday(status)
-    expected_key = expected.isoformat()
-    if not args.force and expected_key in history_dates(status):
+    latest = args.latest
+    force = args.force or latest
+    expected = None if latest else (args.target_date or target_friday(status))
+    expected_key = expected.isoformat() if expected else "latest published week"
+    if not force and expected_key in history_dates(status):
         print(f"Already generated {expected_key}; skipping duplicate")
-        return 2
+        return 0
 
     with make_http_client(args.timeout) as client:
         while time.monotonic() < deadline:
@@ -755,13 +757,13 @@ def poll(args: argparse.Namespace) -> int:
             loop_started = time.monotonic()
             try:
                 probe_date, fetched = fetch_release_probe(client, args.timeout)
-                if not args.force and probe_date.isoformat() in history_dates(load_status(args.status_file)):
+                if not force and probe_date.isoformat() in history_dates(load_status(args.status_file)):
                     message = (
                         f"Latest {probe_date.isoformat()} already generated; "
                         f"waiting for {expected_key}"
                     )
                     generated = False
-                elif probe_date < expected:
+                elif expected is not None and probe_date < expected:
                     message = (
                         f"Latest {probe_date.isoformat()}, "
                         f"waiting for {expected_key}"
@@ -773,9 +775,10 @@ def poll(args: argparse.Namespace) -> int:
                         status_path=args.status_file,
                         no_clipboard=args.no_clipboard,
                         no_preview=args.no_preview,
-                        force=args.force,
+                        force=force,
                         timeout=args.timeout,
-                        target=expected,
+                        target=probe_date if latest else expected,
+                        require_target=not latest,
                         fetched=fetched,
                         client=client,
                     )
@@ -823,8 +826,8 @@ def parse_args() -> argparse.Namespace:
         parser.error("--interval must be positive")
     if args.poll and args.interval < MIN_POLL_INTERVAL_SECONDS:
         parser.error(f"--interval must be at least {MIN_POLL_INTERVAL_SECONDS} seconds in poll mode")
-    if args.poll and args.latest:
-        parser.error("--latest is only valid with --once")
+    if args.latest and args.target_date:
+        parser.error("--latest cannot be combined with --target-date")
     if args.duration <= 0:
         parser.error("--duration must be positive")
     return args
@@ -840,7 +843,7 @@ def main() -> int:
             status_path=args.status_file,
             no_clipboard=args.no_clipboard,
             no_preview=args.no_preview,
-            force=args.force,
+            force=args.force or args.latest,
             timeout=args.timeout,
             target=args.target_date,
             require_target=not args.latest,

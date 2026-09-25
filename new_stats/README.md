@@ -54,7 +54,7 @@ What it does:
 
 - Refreshes the official EIA WPSR schedule from `https://www.eia.gov/petroleum/supply/weekly/schedule.php` immediately on first run, then again when the local cache is older than 7 days.
 - Treats all schedule-page times as Eastern time.
-- Exits immediately on non-release days.
+- Fetches the latest published week on non-release days, independently of output history.
 - On release days, waits until the official release time, then launches `eia_stats.py --poll`.
 
 The current EIA page says the normal CSV/XLS release is after `10:30 a.m. New York/Eastern time` on Wednesday.
@@ -75,7 +75,9 @@ Add arguments:
 -NoProfile -ExecutionPolicy Bypass -File ".\run_eia_stats_task.ps1"
 ```
 
-The PowerShell runner is self-contained for scheduled use: it moves into this folder, creates `.venv` if needed, installs `requirements.txt`, refreshes the official EIA schedule weekly, exits immediately on non-release days, waits until the official Eastern release time on release days, polls for up to 120 seconds by default, writes `eia_stats.png`, updates `eia_stats_status.json`, archives the dated image, and logs to `logs\`.
+The PowerShell runner is self-contained: it moves into this folder, creates `.venv` if needed, installs `requirements.txt`, refreshes the official EIA schedule weekly, fetches the latest published data on non-release days, waits until the official Eastern release time on release days, polls for up to 120 seconds by default, writes `eia_stats.png`, updates `eia_stats_status.json`, archives the dated image, and logs to `logs\`.
+
+Use `-Latest` (or `-IgnoreSchedule`) for an immediate latest-data fetch on any day, including before the scheduled release. This can return the previous published week before new data is released. Latest mode re-copies previously generated weeks; scheduled release mode retains duplicate protection. Direct Python use also supports `--poll --latest`, with the same 0.5-second/120-second retry limits. No existing image archive is required. Timeouts return a nonzero exit code.
 
 By default, the generated PNG is opened on screen and copied to the active Windows clipboard so it can be pasted into a chat. Configure the task as "Run only when user is logged on" so Windows allows clipboard and preview access.
 

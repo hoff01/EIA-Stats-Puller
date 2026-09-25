@@ -8,6 +8,7 @@ param(
     [switch]$NoClipboard,
     [switch]$NoPreview,
     [switch]$IgnoreSchedule,
+    [switch]$Latest,
     [switch]$RefreshScheduleOnly,
     [switch]$ShowDecision,
     [switch]$SetupOnly

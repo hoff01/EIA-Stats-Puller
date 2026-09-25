@@ -23,7 +23,7 @@ class Clock:
 
 class PollDeliveryTests(unittest.TestCase):
     def args(self, root):
-        return SimpleNamespace(duration=120.0, interval=0.5, timeout=2.5, force=False,
+        return SimpleNamespace(duration=120.0, interval=0.5, timeout=2.5, force=False, latest=False,
                                target_date=date(2026, 9, 18), status_file=root / 'status.json',
                                output=root / 'stats.png', no_clipboard=False, no_preview=False)
 
