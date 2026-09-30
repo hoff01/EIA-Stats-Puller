@@ -1,6 +1,10 @@
 param(
-    [double]$IntervalSeconds = 0.5,
-    [double]$DurationSeconds = 120,
+    [ValidateRange(0.25, 3600)]
+    [double]$IntervalSeconds = 0.4,
+    [ValidateRange(1, 100000)]
+    [int]$MaxAttempts = 120,
+    [ValidateRange(0, 86400)]
+    [double]$DurationSeconds = 0,
     [double]$TimeoutSeconds = 2.5,
     [double]$ScheduleTimeoutSeconds = 20.0,
     [int]$ScheduleRefreshDays = 7,
@@ -9,6 +13,7 @@ param(
     [switch]$NoPreview,
     [switch]$IgnoreSchedule,
     [switch]$Latest,
+    [switch]$Scheduled,
     [switch]$RefreshScheduleOnly,
     [switch]$ShowDecision,
     [switch]$SetupOnly

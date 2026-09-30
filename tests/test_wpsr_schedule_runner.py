@@ -116,6 +116,7 @@ class ScheduleRunnerBehaviorTest(unittest.TestCase):
             stats_script=Path("eia_stats.py"),
             interval=0.25,
             duration=120.0,
+            max_attempts=120,
             timeout=2.5,
             output=Path("eia_stats.png"),
             status_file=Path("eia_stats_status.json"),

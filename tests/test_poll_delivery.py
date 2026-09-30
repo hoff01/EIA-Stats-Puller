@@ -23,7 +23,7 @@ class Clock:
 
 class PollDeliveryTests(unittest.TestCase):
     def args(self, root):
-        return SimpleNamespace(duration=120.0, interval=0.5, timeout=2.5, force=False, latest=False,
+        return SimpleNamespace(duration=0, interval=0.4, max_attempts=120, timeout=2.5, force=False, latest=False,
                                target_date=date(2026, 9, 18), status_file=root / 'status.json',
                                output=root / 'stats.png', no_clipboard=False, no_preview=False)
 
@@ -54,12 +54,13 @@ class PollDeliveryTests(unittest.TestCase):
             module = importlib.import_module(f'{variant}.wpsr_schedule_runner')
             with patch('sys.argv', ['wpsr_schedule_runner.py']):
                 args = module.parse_args()
-            self.assertEqual((args.interval, args.duration), (0.5, 120.0))
+            self.assertEqual((args.interval, args.max_attempts, args.duration, args.scheduled), (0.4, 120, 0, False))
             script = (root / variant / 'run_eia_stats_task.ps1').read_text()
-            self.assertIn('[double]$IntervalSeconds = 0.5,', script)
-            self.assertIn('[double]$DurationSeconds = 120,', script)
+            self.assertIn('[double]$IntervalSeconds = 0.4,', script)
+            self.assertIn('[int]$MaxAttempts = 120,', script)
+            self.assertIn('[double]$DurationSeconds = 0,', script)
 
-    def test_unavailable_page_retries_half_second_until_two_minutes(self):
+    def test_unavailable_page_tries_120_times_point_four_seconds_apart(self):
         for variant in ('old_stats', 'new_stats'):
             module = importlib.import_module(f'{variant}.eia_stats')
             clock = Clock()
@@ -77,8 +78,11 @@ class PollDeliveryTests(unittest.TestCase):
                  patch.object(module.time, 'sleep', side_effect=clock.sleep), \
                  redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
                 self.assertEqual(module.poll(self.args(Path(directory))), 2)
-            self.assertEqual(starts, [i * 0.5 for i in range(240)])
-            self.assertEqual(clock.now, 120.0)
+            self.assertEqual(len(starts), 120)
+            for i, started in enumerate(starts):
+                self.assertAlmostEqual(started, i * 0.4)
+            self.assertEqual(clock.sleeps, [0.4] * 119)
+            self.assertAlmostEqual(clock.now, 47.6)
             create.assert_not_called()
 
     def test_blank_http_error_stale_then_ready_only_publishes_once(self):
@@ -99,7 +103,7 @@ class PollDeliveryTests(unittest.TestCase):
                  patch.object(module.time, 'sleep', side_effect=clock.sleep), redirect_stdout(io.StringIO()):
                 self.assertEqual(module.poll(self.args(Path(directory))), 0)
             self.assertEqual(probe.call_count, 4)
-            self.assertEqual(clock.sleeps, [0.5, 0.5, 0.5])
+            self.assertEqual(clock.sleeps, [0.4, 0.4, 0.4])
             create.assert_called_once()
             self.assertFalse(create.call_args.kwargs['no_clipboard'])
 

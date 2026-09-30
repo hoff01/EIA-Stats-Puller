@@ -28,13 +28,13 @@ class LatestModeTests(unittest.TestCase):
                      patch.object(module.time, "sleep", side_effect=sleep), redirect_stdout(io.StringIO()):
                     self.assertEqual(module.poll(args), 0)
                 self.assertEqual(probe.call_count, 2)
-                self.assertEqual(now[0], 0.5)
+                self.assertEqual(now[0], 0.4)
                 self.assertTrue(create.call_args.kwargs["force"])
                 self.assertFalse(create.call_args.kwargs["require_target"])
                 self.assertFalse(create.call_args.kwargs["no_clipboard"])
                 self.assertEqual(create.call_args.kwargs["target"], date(2026, 9, 18))
 
-    def test_latest_poll_stops_after_two_minutes_of_unavailability(self):
+    def test_latest_poll_stops_after_120_attempts_of_unavailability(self):
         for variant in ("old_stats", "new_stats"):
             module = importlib.import_module(f"{variant}.eia_stats")
             with patch("sys.argv", ["stats", "--poll", "--latest"]):
@@ -48,8 +48,8 @@ class LatestModeTests(unittest.TestCase):
                  patch.object(module.time, "sleep", side_effect=sleep), \
                  redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
                 self.assertEqual(module.poll(args), 2)
-            self.assertEqual(probe.call_count, 240)
-            self.assertEqual(now[0], 120)
+            self.assertEqual(probe.call_count, 120)
+            self.assertAlmostEqual(now[0], 47.6)
 
     def test_latest_cannot_also_require_future_target(self):
         for variant in ("old_stats", "new_stats"):
@@ -66,7 +66,7 @@ class LatestModeTests(unittest.TestCase):
             for now, expected in (("2026-09-25T12:00:00", {"latest": True}),
                                   ("2026-09-23T10:28:00", {"target_date": date(2026, 9, 18)}),
                                   ("2026-09-10T10:00:00", {"target_date": date(2026, 9, 4)})):
-                with patch("sys.argv", ["runner", "--now-eastern", now]), \
+                with patch("sys.argv", ["runner", "--scheduled", "--now-eastern", now]), \
                      patch.object(module, "resolve_schedule", return_value=schedule), \
                      patch.object(module, "save_schedule_file"), \
                      patch.object(module, "wait_until_release") as wait, \
@@ -88,10 +88,44 @@ class LatestModeTests(unittest.TestCase):
                 if not show:
                     self.assertEqual(run.call_args.kwargs, {"latest": True})
 
+    def test_standard_run_starts_before_release_without_calendar_wait(self):
+        for variant in ("old_stats", "new_stats"):
+            module = importlib.import_module(f"{variant}.wpsr_schedule_runner")
+            with patch("sys.argv", ["runner", "--now-eastern", "2026-09-30T09:00:00"]), \
+                 patch.object(module, "resolve_schedule", side_effect=AssertionError("calendar used")), \
+                 patch.object(module, "wait_until_release", side_effect=AssertionError("time gate used")), \
+                 patch.object(module, "run_stats_command", return_value=0) as run, redirect_stdout(io.StringIO()):
+                self.assertEqual(module.main(), 0)
+            self.assertEqual(run.call_args.kwargs, {"latest": True})
+            args = run.call_args.args[0]
+            self.assertEqual((args.max_attempts, args.interval, args.duration), (120, 0.4, 0))
+
+    def test_slow_fetches_are_sequential_and_attempt_limited(self):
+        for variant in ("old_stats", "new_stats"):
+            module = importlib.import_module(f"{variant}.eia_stats")
+            with patch("sys.argv", ["stats", "--poll", "--latest"]):
+                args = module.parse_args()
+            now = [0.0]
+            starts = []
+            def slow(*unused):
+                starts.append(now[0])
+                now[0] += 2
+                raise ValueError("unavailable")
+            with patch.object(module, "make_http_client"), \
+                 patch.object(module, "fetch_release_probe", side_effect=slow), \
+                 patch.object(module.time, "monotonic", side_effect=lambda: now[0]), \
+                 patch.object(module.time, "sleep", side_effect=lambda seconds: now.__setitem__(0, now[0] + seconds)), \
+                 redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
+                self.assertEqual(module.poll(args), 2)
+            self.assertEqual(len(starts), 120)
+            self.assertAlmostEqual(now[0], 287.6)
+            for a, b in zip(starts, starts[1:]):
+                self.assertAlmostEqual(b - a, 2.4)
+
     def test_schedule_failure_falls_back_to_live_latest(self):
         for variant in ("old_stats", "new_stats"):
             module = importlib.import_module(f"{variant}.wpsr_schedule_runner")
-            with patch("sys.argv", ["runner"]), \
+            with patch("sys.argv", ["runner", "--scheduled"]), \
                  patch.object(module, "resolve_schedule", side_effect=OSError("unavailable")), \
                  patch.object(module, "run_stats_command", return_value=0) as run, redirect_stdout(io.StringIO()):
                 self.assertEqual(module.main(), 0)

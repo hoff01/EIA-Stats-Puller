@@ -1,6 +1,10 @@
 param(
-    [double]$IntervalSeconds = 0.5,
-    [double]$DurationSeconds = 120,
+    [ValidateRange(0.25, 3600)]
+    [double]$IntervalSeconds = 0.4,
+    [ValidateRange(1, 100000)]
+    [int]$MaxAttempts = 120,
+    [ValidateRange(0, 86400)]
+    [double]$DurationSeconds = 0,
     [double]$TimeoutSeconds = 2.5,
     [double]$ScheduleTimeoutSeconds = 20.0,
     [int]$ScheduleRefreshDays = 7,
@@ -9,6 +13,7 @@ param(
     [switch]$NoPreview,
     [switch]$IgnoreSchedule,
     [switch]$Latest,
+    [switch]$Scheduled,
     [switch]$RefreshScheduleOnly,
     [switch]$ShowDecision,
     [switch]$SetupOnly
@@ -77,7 +82,7 @@ Set-Location $ScriptDir
 $env:EIA_STATS_OUTPUT_PATH = Join-Path $ScriptDir "eia_stats.png"
 $env:EIA_STATS_STATUS_FILE = Join-Path $ScriptDir "eia_stats_status.json"
 $env:EIA_STATS_REFRESH_INTERVAL_SECONDS = [string]$IntervalSeconds
-$env:EIA_STATS_MAX_ATTEMPTS = [string][int][Math]::Ceiling($DurationSeconds / $IntervalSeconds)
+$env:EIA_STATS_MAX_ATTEMPTS = [string]$MaxAttempts
 $env:EIA_STATS_RUN_MODE = "poll"
 $env:EIA_STATS_REQUEST_TIMEOUT_SECONDS = [string]$TimeoutSeconds
 $env:EIA_STATS_IMAGE_FETCH_RETRY_ATTEMPTS = "3"
@@ -121,7 +126,8 @@ if ($SetupOnly) {
 $argsList = @(
     $ScheduleRunner,
     "--stats-script", $PythonScript,
-    "--interval", [string]$IntervalSeconds,
+    "--interval", $IntervalSeconds.ToString([System.Globalization.CultureInfo]::InvariantCulture),
+    "--max-attempts", [string]$MaxAttempts,
     "--duration", [string]$DurationSeconds,
     "--timeout", [string]$TimeoutSeconds,
     "--schedule-timeout", [string]$ScheduleTimeoutSeconds,
@@ -142,6 +148,9 @@ if ($Force) {
 if ($IgnoreSchedule -or $Latest) {
     $argsList += "--ignore-schedule"
 }
+if ($Scheduled) {
+    $argsList += "--scheduled"
+}
 if ($RefreshScheduleOnly) {
     $argsList += "--refresh-only"
 }
@@ -149,7 +158,7 @@ if ($ShowDecision) {
     $argsList += "--show-decision"
 }
 
-Write-TaskLog "Running EIA schedule-aware task."
+Write-TaskLog "Running EIA live fetch: up to $MaxAttempts attempts, $IntervalSeconds seconds apart."
 $exitCode = Invoke-LoggedCommand -Command $VenvPython -Arguments $argsList
 Write-TaskLog "Finished with exit code $exitCode."
 

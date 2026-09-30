@@ -381,6 +381,8 @@ def build_stats_command(args: argparse.Namespace, *, latest: bool = False, targe
         str(args.interval),
         "--duration",
         str(args.duration),
+        "--max-attempts",
+        str(args.max_attempts),
         "--timeout",
         str(args.timeout),
         "--output",
@@ -446,9 +448,8 @@ def wait_until_release(now_et: datetime, decision: ReleaseDecision) -> None:
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
-            "Daily EIA WPSR schedule-aware runner. It refreshes the official release "
-            "schedule, fetches latest data on non-release days, and waits until the "
-            "official Eastern release time on release days."
+            "Fetch live EIA WPSR data immediately, with up to 120 attempts "
+            "0.4 seconds apart. Calendar waiting is opt-in via --scheduled."
         )
     )
     parser.add_argument("--stats-script", type=Path, default=DEFAULT_STATS_SCRIPT)
@@ -458,25 +459,32 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--schedule-seed", type=Path, default=DEFAULT_SCHEDULE_SEED)
     parser.add_argument("--schedule-refresh-days", type=int, default=DEFAULT_REFRESH_DAYS)
     parser.add_argument("--schedule-timeout", type=float, default=20.0)
-    parser.add_argument("--interval", type=float, default=0.5)
-    parser.add_argument("--duration", type=float, default=120.0)
+    parser.add_argument("--interval", type=float, default=0.4)
+    parser.add_argument("--duration", type=float, default=0)
+    parser.add_argument("--max-attempts", type=int, default=120)
     parser.add_argument("--timeout", type=float, default=2.5)
     parser.add_argument("--now-eastern", help="Testing override in ISO format; naive values are interpreted as Eastern time.")
     parser.add_argument("--refresh-only", action="store_true", help="Refresh the cached WPSR schedule and exit.")
     parser.add_argument("--show-decision", action="store_true", help="Print today's release decision and exit.")
     parser.add_argument("--ignore-schedule", "--latest", action="store_true", help="Fetch latest published data immediately, ignoring the calendar and prior output history.")
+    parser.add_argument("--scheduled", action="store_true", help="Opt in to the legacy calendar/release-time wait.")
     parser.add_argument("--force", action="store_true")
     parser.add_argument("--no-clipboard", action="store_true")
     parser.add_argument("--no-preview", action="store_true")
-    return parser.parse_args()
+    args = parser.parse_args()
+    if args.scheduled and args.ignore_schedule:
+        parser.error("--scheduled cannot be combined with --latest or --ignore-schedule")
+    if args.max_attempts < 1 or args.interval < 0.25 or args.duration < 0:
+        parser.error("Use positive attempts, interval >= 0.25, and duration >= 0")
+    return args
 
 
 def main() -> int:
     args = parse_args()
     now_et = resolve_now_eastern(args.now_eastern)
 
-    if args.ignore_schedule and not args.refresh_only:
-        print("Fetching latest published data without a schedule check.", flush=True)
+    if not args.scheduled and not args.refresh_only:
+        print(f"Starting immediately: up to {args.max_attempts} attempts, {args.interval}s apart; no release-time wait.", flush=True)
         return 0 if args.show_decision else run_stats_command(args, latest=True)
 
     try:

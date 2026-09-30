@@ -739,7 +739,7 @@ def create_output(
 
 
 def poll(args: argparse.Namespace) -> int:
-    deadline = time.monotonic() + args.duration
+    deadline = time.monotonic() + args.duration if args.duration else float("inf")
     attempt = 0
     last_message = ""
     status = load_status(args.status_file)
@@ -752,9 +752,8 @@ def poll(args: argparse.Namespace) -> int:
         return 0
 
     with make_http_client(args.timeout) as client:
-        while time.monotonic() < deadline:
+        while attempt < args.max_attempts and time.monotonic() < deadline:
             attempt += 1
-            loop_started = time.monotonic()
             try:
                 probe_date, fetched = fetch_release_probe(client, args.timeout)
                 if not force and probe_date.isoformat() in history_dates(load_status(args.status_file)):
@@ -792,17 +791,18 @@ def poll(args: argparse.Namespace) -> int:
             if generated:
                 return 0
 
-            now = time.monotonic()
-            sleep_for = min(args.interval - (now - loop_started), deadline - now)
+            if attempt >= args.max_attempts:
+                break
+            sleep_for = min(args.interval, deadline - time.monotonic())
             if sleep_for > 0:
                 time.sleep(sleep_for)
-    print(f"Timeout after {attempt} attempts; no new stats generated.", file=sys.stderr)
+    print(f"Stopped after {attempt} attempts; no valid stats generated.", file=sys.stderr)
     return 2
 
 
 def parse_args() -> argparse.Namespace:
-    default_interval = read_env_float("EIA_STATS_REFRESH_INTERVAL_SECONDS", 0.5)
-    default_attempts = read_env_int("EIA_STATS_MAX_ATTEMPTS", 240)
+    default_interval = read_env_float("EIA_STATS_REFRESH_INTERVAL_SECONDS", 0.4)
+    default_attempts = read_env_int("EIA_STATS_MAX_ATTEMPTS", 120)
     parser = argparse.ArgumentParser(description="Fast EIA WPSR petroleum legacy-CSV-to-image generator.")
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument("--once", action="store_true", help="Fetch once and generate if data is new.")
@@ -810,7 +810,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output", type=Path, default=resolve_output_path(), help="Output PNG path.")
     parser.add_argument("--status-file", type=Path, default=resolve_status_path(), help="History/status JSON path.")
     parser.add_argument("--interval", type=float, default=default_interval)
-    parser.add_argument("--duration", type=float, default=default_interval * default_attempts, help="Polling duration in seconds.")
+    parser.add_argument("--duration", type=float, default=0, help="Optional additional time limit in seconds; 0 uses only the attempt limit.")
+    parser.add_argument("--max-attempts", type=int, default=default_attempts, help="Total polling attempts, including the first; default 120.")
     parser.add_argument("--timeout", type=float, default=read_env_float("EIA_STATS_REQUEST_TIMEOUT_SECONDS", 2.5))
     parser.add_argument("--target-date", type=date.fromisoformat, help="Expected Friday date, YYYY-MM-DD.")
     parser.add_argument("--latest", action="store_true", help="Generate the latest available WPSR week instead of requiring the next Friday target.")
@@ -828,8 +829,10 @@ def parse_args() -> argparse.Namespace:
         parser.error(f"--interval must be at least {MIN_POLL_INTERVAL_SECONDS} seconds in poll mode")
     if args.latest and args.target_date:
         parser.error("--latest cannot be combined with --target-date")
-    if args.duration <= 0:
-        parser.error("--duration must be positive")
+    if args.duration < 0:
+        parser.error("--duration cannot be negative")
+    if args.max_attempts < 1:
+        parser.error("--max-attempts must be positive")
     return args
 
 
